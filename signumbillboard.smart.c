@@ -10,7 +10,7 @@
 #define EXECUTION_RESERVE_AMOUNT 2000_0000
 // Price is halved every 7 days
 #define BLOCKS_TO_HALVE_THE_PRICE 2520
-// Signum-Network Association address
+// Signum Network Association address
 #define SNA_ADDRESS "S-5MS6-5FBY-74H4-9N4HS"
 
 // Transaction structure
@@ -18,6 +18,7 @@ struct TXINFO
 {
     long amount;
     long tax;
+    long royalty;
     long timestamp;
     long sender;
 } currentTX, ownerTX;
@@ -40,6 +41,7 @@ void getTxDetails(void) {
     currentTX.amount = Get_Amount_For_Tx_In_A() + ONE_SIGNA;
     // tax will be doubled: 1% to SNA + 1% to creator
     currentTX.tax = currentTX.amount / 100;
+    currentTX.royalty = 0;
     currentTX.timestamp = Get_Timestamp_For_Tx_In_A();
     B_To_Address_Of_Tx_In_A();
     currentTX.sender = Get_B1();
@@ -55,15 +57,20 @@ void processTX(void) {
     }
     // if current amount outbid the actual price
     if (currentTX.amount >= actualPrice) {
-        // return previous amount to it owner
+        // return previous amount to its owner
         if (ownerTX.sender != 0) { // if not first purchase
             Set_B1(ownerTX.sender);
-            Send_To_Address_In_B(ownerTX.amount - ownerTX.tax * 2  - EXECUTION_RESERVE_AMOUNT);
+            // extra royalty when buying in the first halving interval
+            if (blocksDiff < BLOCKS_TO_HALVE_THE_PRICE) {
+                currentTX.royalty = ownerTX.amount >> 1;
+            }
+            Send_To_Address_In_B(ownerTX.amount - ownerTX.royalty + currentTX.royalty - ownerTX.tax * 2  - EXECUTION_RESERVE_AMOUNT);
         }
 
         // switch the owner
         ownerTX.amount = currentTX.amount;
         ownerTX.tax = currentTX.tax;
+        ownerTX.royalty = currentTX.royalty;
         ownerTX.timestamp = currentTX.timestamp;
         ownerTX.sender = currentTX.sender;
 
@@ -72,7 +79,7 @@ void processTX(void) {
     } else {
         // negative answer if not enough to own
         Set_B1(currentTX.sender);
-        Set_A1_A2("Not enou", "gh bid!"); Set_A3_A4("", "");
+        Set_A1_A2("Not enou", "gh bid!"); Set_A3_A4("        ", "        ");
         Send_A_To_Address_In_B();
         Send_To_Address_In_B(currentTX.amount - EXECUTION_RESERVE_AMOUNT);
     }
@@ -90,7 +97,7 @@ void sendCreatorTax(void) {
         B_To_Address_Of_Creator();
         // as can't send tax to the creator every time
         // coz don't know if the purchase was successful or not
-        // leave only owner balance minus SNA tax (it's already sent)
-        Send_To_Address_In_B(Get_Current_Balance() + ownerTX.tax - ownerTX.amount);
+        // leave only owner balance minus taxes (it's already sent)
+        Send_To_Address_In_B(Get_Current_Balance() - (ownerTX.amount - ownerTX.tax - ownerTX.royalty));
     }
 }
