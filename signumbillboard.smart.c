@@ -4,11 +4,11 @@
 #include APIFunctions
 
 // Minimum segment cost
-#define ONE_SIGNA 1_0000_0000
-#program activationAmount ONE_SIGNA
+#define TEN_SIGNA 10_0000_0000
+#program activationAmount TEN_SIGNA
 // Rounded execution reserve to reject insufficient bids
 #define EXECUTION_RESERVE_AMOUNT 2000_0000
-// Price is halved every 7 days
+// Price is halved every 7 days = 2520 blocks
 #define BLOCKS_TO_HALVE_THE_PRICE 2520
 // Signum Network Association address
 #define SNA_ADDRESS "S-5MS6-5FBY-74H4-9N4HS"
@@ -38,9 +38,9 @@ void main(void) {
 
 // Fill currentTX temporary variable
 void getTxDetails(void) {
-    currentTX.amount = Get_Amount_For_Tx_In_A() + ONE_SIGNA;
-    // tax will be doubled: 1% to SNA + 1% to creator
-    currentTX.tax = currentTX.amount / 100;
+    currentTX.amount = Get_Amount_For_Tx_In_A() + TEN_SIGNA;
+    // 1% to SNA + 1% to creator
+    currentTX.tax = currentTX.amount / 50;
     currentTX.royalty = 0;
     currentTX.timestamp = Get_Timestamp_For_Tx_In_A();
     B_To_Address_Of_Tx_In_A();
@@ -52,19 +52,19 @@ void processTX(void) {
     // calc actual price
     long blocksDiff = (currentTX.timestamp - ownerTX.timestamp) >> 32;
     long actualPrice = (ownerTX.amount * 2) >> (blocksDiff / BLOCKS_TO_HALVE_THE_PRICE);
-    if (actualPrice < ONE_SIGNA) {
-        actualPrice = ONE_SIGNA;
+    if (actualPrice < TEN_SIGNA) {
+        actualPrice = TEN_SIGNA;
     }
     // if current amount outbid the actual price
     if (currentTX.amount >= actualPrice) {
-        // return previous amount to its owner
-        if (ownerTX.sender != 0) { // if not first purchase
+        // if not first purchase return previous amount to its owner
+        if (ownerTX.sender != 0) {
             Set_B1(ownerTX.sender);
             // extra royalty when buying in the first halving interval
             if (blocksDiff < BLOCKS_TO_HALVE_THE_PRICE) {
                 currentTX.royalty = ownerTX.amount >> 1;
             }
-            Send_To_Address_In_B(ownerTX.amount - ownerTX.royalty + currentTX.royalty - ownerTX.tax * 2  - EXECUTION_RESERVE_AMOUNT);
+            Send_To_Address_In_B(ownerTX.amount - ownerTX.royalty + currentTX.royalty - ownerTX.tax);
         }
 
         // switch the owner
@@ -74,7 +74,7 @@ void processTX(void) {
         ownerTX.timestamp = currentTX.timestamp;
         ownerTX.sender = currentTX.sender;
 
-        // and donate one tax to SNA
+        // and donate to SNA
         sendDonateToSNA();
     } else {
         // negative answer if not enough to own
@@ -85,10 +85,10 @@ void processTX(void) {
     }
 }
 
-// Donate tax to SNA
+// Donate half tax to SNA
 void sendDonateToSNA(void) {
     Set_B1(SNA_ADDRESS);
-    Send_To_Address_In_B(ownerTX.tax);
+    Send_To_Address_In_B((ownerTX.tax - EXECUTION_RESERVE_AMOUNT) >> 1);
 }
 
 // Send remainder balance to creator
@@ -98,6 +98,6 @@ void sendCreatorTax(void) {
         // as can't send tax to the creator every time
         // coz don't know if the purchase was successful or not
         // leave only owner balance minus taxes (it's already sent)
-        Send_To_Address_In_B(Get_Current_Balance() - (ownerTX.amount - ownerTX.tax - ownerTX.royalty));
+        Send_To_Address_In_B(Get_Current_Balance() - (ownerTX.amount - (ownerTX.tax >> 1) - ownerTX.royalty));
     }
 }
