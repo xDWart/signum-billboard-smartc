@@ -79,7 +79,7 @@ void processTX(void) {
     } else {
         // negative answer if not enough to own
         Set_B1(currentTX.sender);
-        Set_A1_A2("Not enou", "gh bid!"); Set_A3_A4("        ", "        ");
+        Set_A1_A2("Not enou", "gh depos"); Set_A3_A4("it!     ", "        ");
         Send_A_To_Address_In_B();
         Send_To_Address_In_B(currentTX.amount - EXECUTION_RESERVE_AMOUNT);
     }
